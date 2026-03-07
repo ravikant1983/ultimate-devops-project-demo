@@ -110,7 +110,7 @@ stage('Docker Push') {
                     git reset --hard origin/cicd
 
                     # Update Kubernetes manifest safely
-                    sed -i "s|image: .*|image: $DOCKER_USERNAME/product-catalog:$BUILD_NUMBER|" kubernetes/productcatalog/deploy.yaml
+                    sed -i "s|image: .*|image: rkg1983/product-catalog:$BUILD_NUMBER|" kubernetes/productcatalog/deploy.yaml
 
                     # Configure Git for CI
                     git config user.email "ravikant@gmail.com"
