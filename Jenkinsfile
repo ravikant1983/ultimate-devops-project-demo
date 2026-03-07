@@ -72,6 +72,7 @@ pipeline {
 
                     git config --global user.email "ravikant@gmail.com"
                     git config --global user.name "Ravikant Gupta"
+                    git pull --rebase --autostash https://$TOKEN@github.com/ravikant1983/ultimate-devops-project-demo.git rkgtest
 
                     git add kubernetes/productcatalog/deploy.yaml
                     git commit -m "[CI]: Update product catalog image tag"
