@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         GO_VERSION = "1.22"
-        IMAGE_NAME = "ravikant/product-catalog"
+        IMAGE_NAME = "rkg1983/product-catalog"
         IMAGE_TAG = "${BUILD_NUMBER}"
         DOCKER_CREDENTIALS = credentials('dockerhub')
         GITHUB_TOKEN = credentials('github-token')
