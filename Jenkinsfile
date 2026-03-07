@@ -65,7 +65,7 @@ pipeline {
 
                     git add kubernetes/productcatalog/deploy.yaml
                     git commit -m "[CI]: Update product catalog image tag"
-                    git push https://$TOKEN@github.com/ravikant1983/ultimate-devops-project-demo.git HEAD:main
+                    git push https://$TOKEN@github.com/ravikant1983/ultimate-devops-project-demo.git HEAD:rkgtest
                     '''
                 }
             }
