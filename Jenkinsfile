@@ -102,14 +102,30 @@ stage('Docker Push') {
 
         stage('Update Kubernetes Manifest') {
             steps {
-                sh """
-                sed -i "s|image: .*|image: $IMAGE_NAME:$IMAGE_TAG|" kubernetes/productcatalog/deploy.yaml
-                git config --global user.email "ravikant@gmail.com"
-                git config --global user.name "Ravikant Gupta"
-                git add kubernetes/productcatalog/deploy.yaml
-                git commit -m "[CI] Update image tag to $IMAGE_TAG"
-                git push https://$GITHUB_TOKEN@github.com/ravikant1983/ultimate-devops-project-demo.git HEAD:main
-                """
+                withCredentials([string(credentialsId: 'github-token', variable: 'TOKEN')]) {
+                    sh '''
+                    # Ensure branch is up-to-date
+                    git fetch origin testrkg
+                    git checkout testrkg
+                    git reset --hard origin/testrkg
+
+                    # Update Kubernetes manifest safely
+                    sed -i "s|image: .*|image: $DOCKER_USERNAME/product-catalog:$BUILD_NUMBER|" kubernetes/productcatalog/deploy.yaml
+
+                    # Configure Git for CI
+                    git config user.email "ravikant@gmail.com"
+                    git config user.name "Ravikant Gupta"
+
+                    # Commit and push only if changes exist
+                    if ! git diff --quiet; then
+                        git add kubernetes/productcatalog/deploy.yaml
+                        git commit -m "[CI]: Update product catalog image tag $BUILD_NUMBER"
+                        git push https://$TOKEN@github.com/ravikant1983/ultimate-devops-project-demo.git HEAD:testrkg
+                    else
+                        echo "No changes to commit"
+                    fi
+                    '''
+                }
             }
         }
 
