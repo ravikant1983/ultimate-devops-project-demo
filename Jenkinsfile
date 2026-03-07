@@ -46,16 +46,23 @@ pipeline {
 }
 
 
-        stage('Docker Build & Push') {
-            steps {
-                script {
-                    sh '''
-                    docker build -t $DOCKER_USERNAME/product-catalog:${IMAGE_TAG} src/product-catalog
-                    docker push $DOCKER_USERNAME/product-catalog:${IMAGE_TAG}
-                    '''
-                }
-            }
+
+	stage('Docker Build & Push') {
+    	   steps {
+               withCredentials([usernamePassword(
+            	   credentialsId: 'dockerhub',
+            	   usernameVariable: 'DOCKER_USERNAME',
+            	   passwordVariable: 'DOCKER_PASSWORD'
+              )]) {
+                  sh '''
+                  docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
+                  docker build -t $DOCKER_USERNAME/product-catalog:${IMAGE_TAG} src/product-catalog
+                  docker push $DOCKER_USERNAME/product-catalog:${IMAGE_TAG}
+                  '''
         }
+    }
+}
+
 
         stage('Update Kubernetes Manifest') {
             steps {
