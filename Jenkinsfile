@@ -115,9 +115,13 @@ stage('Docker Push') {
 
         stage('Trigger ArgoCD Deployment') {
             steps {
-                sh """
-                argocd app sync product-catalog-app --grpc-web --auth-token argocd-token
-                """
+		withCredentials([string(credentialsId: 'argocd-token', variable: 'ARGOCD_TOKEN')]) {
+                    sh """
+                    argocd app sync product-catalog-app \
+                    --server a853d1ab52bbf48a19db1763162e88a1-447774326.ap-south-1.elb.amazonaws.com \
+                    --grpc-web \
+                    --auth-token $ARGOCD_TOKEN
+                    """
             }
         }
 
@@ -126,9 +130,6 @@ stage('Docker Push') {
     post {
         success {
             echo "Pipeline completed successfully!"
-        }
-        failure {
-            slackSend channel: '#devops', message: "Build #${BUILD_NUMBER} failed! Check Jenkins logs."
         }
     }
 }
