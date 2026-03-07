@@ -64,23 +64,48 @@ pipeline {
 }
 
 
-        stage('Update Kubernetes Manifest') {
-            steps {
-                withCredentials([string(credentialsId: 'github-token', variable: 'TOKEN')]) {
-                    sh '''
-                    sed -i "s|image: .*|image: $DOCKER_USERNAME/product-catalog:${IMAGE_TAG}|" kubernetes/productcatalog/deploy.yaml
+stage('Update Kubernetes Manifest') {
+    steps {
+        script {
+            // 1️⃣ Update the image tag in deploy.yaml using only the Docker username (no token)
+            sh """
+                sed -i 's|image: .*|image: ${DOCKER_USERNAME}/product-catalog:${IMAGE_TAG}|' kubernetes/productcatalog/deploy.yaml
+            """
 
-                    git config --global user.email "ravikant@gmail.com"
-                    git config --global user.name "Ravikant Gupta"
-                    git pull --rebase --autostash https://$TOKEN@github.com/ravikant1983/ultimate-devops-project-demo.git rkgtest
+            // 2️⃣ Configure Git (name/email)
+            sh """
+                git config --global user.email "ravikant@gmail.com"
+                git config --global user.name "Ravikant Gupta"
+            """
 
-                    git add kubernetes/productcatalog/deploy.yaml
-                    git commit -m "[CI]: Update product catalog image tag"
-                    git push https://$TOKEN@github.com/ravikant1983/ultimate-devops-project-demo.git HEAD:rkgtest
-                    '''
-                }
+            // 3️⃣ Checkout the branch safely
+            sh """
+                git fetch origin
+                git checkout rkgtest
+            """
+
+            // 4️⃣ Commit only the manifest change
+            sh """
+                git add kubernetes/productcatalog/deploy.yaml
+                git commit -m "[CI]: Update product catalog image tag ${IMAGE_TAG}" || echo "No changes to commit"
+            """
+
+            // 5️⃣ Push using Jenkins Git credentials (secure, token stored in Jenkins)
+            withCredentials([usernamePassword(credentialsId: 'github-token', 
+                                             usernameVariable: 'GIT_USER', 
+                                             passwordVariable: 'GIT_TOKEN')]) {
+                sh """
+                    git remote set-url origin https://${GIT_USER}:${GIT_TOKEN}@github.com/ravikant1983/ultimate-devops-project-demo.git
+                    git pull --rebase origin rkgtest || echo "No remote changes to rebase"
+                    git push origin rkgtest
+                """
             }
         }
+    }
+}
+
+
+
 
     }
 }
