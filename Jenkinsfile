@@ -2,8 +2,7 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_USERNAME = credentials('dockerhub')
-        IMAGE_TAG = "${BUILD_NUMBER}"
+        IMAGE_TAG = "${BUILD_NUMBER}" // Image tag based on Jenkins build number
     }
 
     stages {
@@ -11,7 +10,7 @@ pipeline {
         stage('Checkout Code') {
             steps {
                 git branch: 'main',
-                url: 'https://github.com/ravikant1983/ultimate-devops-project-demo.git'
+                    url: 'https://github.com/ravikant1983/ultimate-devops-project-demo.git'
             }
         }
 
@@ -37,8 +36,8 @@ pipeline {
         stage('Code Quality') {
             steps {
                 sh '''
-		cd src/product-catalog
-		go mod tidy
+                cd src/product-catalog
+                go mod tidy
                 curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s latest
                 ./bin/golangci-lint run .
                 '''
@@ -47,61 +46,54 @@ pipeline {
 
         stage('Docker Build & Push') {
             steps {
-	        withCredentials([
+                withCredentials([
                     usernamePassword(
-                        credentialsId: 'dockerhub', 
-                        usernameVariable: 'DOCKER_USERNAME', 
+                        credentialsId: 'dockerhub',
+                        usernameVariable: 'DOCKER_USERNAME',
                         passwordVariable: 'DOCKER_PASSWORD'
                     )
                 ]) {
-                script {
-                    def imageTag = "${env.BUILD_NUMBER}"
-                    def imageName = "${DOCKER_USERNAME}/product-catalog:${imageTag}"
-                 
-                    echo "Building Docker image: ${imageName}"                   
+                    sh '''
+                    # Login to Docker Hub safely
+                    echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
 
-            	    // Build the Docker image
-                    sh "docker build -t ${imageName} src/product-catalog"
+                    # Build the Docker image
+                    docker build -t $DOCKER_USERNAME/product-catalog:$BUILD_NUMBER src/product-catalog
 
-                    // Login to Docker Hub
-                    sh "echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin"
+                    # Push the Docker image
+                    docker push $DOCKER_USERNAME/product-catalog:$BUILD_NUMBER
+                    '''
+                }
+            }
+        }
 
-                    // Push the image
-                    sh "docker push ${imageName}"
+        stage('Update Kubernetes Manifest') {
+            steps {
+                withCredentials([string(credentialsId: 'github-token', variable: 'TOKEN')]) {
+                    sh '''
+                    # Ensure branch is up-to-date
+                    git fetch origin testrkg
+                    git checkout testrkg
+                    git reset --hard origin/testrkg
+
+                    # Update Kubernetes manifest safely
+                    sed -i "s|image: .*|image: $DOCKER_USERNAME/product-catalog:$BUILD_NUMBER|" kubernetes/productcatalog/deploy.yaml
+
+                    # Configure Git for CI
+                    git config user.email "ravikant@gmail.com"
+                    git config user.name "Ravikant Gupta"
+
+                    # Commit and push only if changes exist
+                    if ! git diff --quiet; then
+                        git add kubernetes/productcatalog/deploy.yaml
+                        git commit -m "[CI]: Update product catalog image tag $BUILD_NUMBER"
+                        git push https://$TOKEN@github.com/ravikant1983/ultimate-devops-project-demo.git HEAD:testrkg
+                    else
+                        echo "No changes to commit"
+                    fi
+                    '''
+                }
             }
         }
     }
-}
-stage('Update Kubernetes Manifest') {
-    steps {
-        withCredentials([string(credentialsId: 'github-token', variable: 'TOKEN')]) {
-            sh '''
-            # Switch to your target branch
-            git fetch origin testrkg
-            git checkout testrkg
-            git reset --hard origin/testrkg
-
-            # Update image tag in the Kubernetes manifest
-            sed -i "s|image: .*|image: ${DOCKER_USERNAME}/product-catalog:${IMAGE_TAG}|" kubernetes/productcatalog/deploy.yaml
-
-            # Git config for CI commits
-            git config user.email "ravikant@gmail.com"
-            git config user.name "Ravikant Gupta"
-
-            # Commit only if there are changes
-            if ! git diff --quiet; then
-                git add kubernetes/productcatalog/deploy.yaml
-                git commit -m "[CI]: Update product catalog image tag"
-                
-                # Push using GitHub token securely
-                git push https://$TOKEN@github.com/ravikant1983/ultimate-devops-project-demo.git HEAD:testrkg
-            else
-                echo "No changes to commit"
-            fi
-            '''
-        }
-    }
-  }
-   
- }
 }
