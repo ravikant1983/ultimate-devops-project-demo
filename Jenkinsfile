@@ -2,98 +2,132 @@ pipeline {
     agent any
 
     environment {
-        IMAGE_TAG = "${BUILD_NUMBER}" // Image tag based on Jenkins build number
+        GO_VERSION = "1.22"
+        IMAGE_NAME = "ravikant/product-catalog"
+        IMAGE_TAG = "${BUILD_NUMBER}"
+        DOCKER_CREDENTIALS = credentials('dockerhub')
+        GITHUB_TOKEN = credentials('github-token')
+        SONAR_TOKEN = credentials('sonar-token')
+    }
+
+    options {
+        ansiColor('xterm')
+        buildDiscarder(logRotator(numToKeepStr: '20'))
+        timeout(time: 60, unit: 'MINUTES')
     }
 
     stages {
 
         stage('Checkout Code') {
             steps {
-                git branch: 'main',
-                    url: 'https://github.com/ravikant1983/ultimate-devops-project-demo.git'
+                git branch: 'main', url: 'https://github.com/ravikant1983/ultimate-devops-project-demo.git'
             }
         }
 
-        stage('Build') {
+        stage('Setup Go') {
             steps {
-                sh '''
+                sh """
+                wget https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz
+                sudo rm -rf /usr/local/go
+                sudo tar -C /usr/local -xzf go${GO_VERSION}.linux-amd64.tar.gz
+                export PATH=\$PATH:/usr/local/go/bin
+                go version
+                """
+            }
+        }
+
+        stage('Build Go App') {
+            steps {
+                sh """
                 cd src/product-catalog
                 go mod download
                 go build -o product-catalog-service main.go
-                '''
+                """
             }
         }
 
         stage('Unit Tests') {
             steps {
-                sh '''
+                sh """
                 cd src/product-catalog
                 go test ./...
-                '''
+                """
             }
         }
 
-        stage('Code Quality') {
+        stage('Code Quality Scan') {
             steps {
-                sh '''
-                cd src/product-catalog
-                go mod tidy
+                sh """
                 curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s latest
-                ./bin/golangci-lint run .
-                '''
+                ./bin/golangci-lint run src/product-catalog
+                """
+            }
+        }
+
+        stage('SonarQube Scan') {
+            steps {
+                sh """
+                sonar-scanner \
+                  -Dsonar.projectKey=product-catalog \
+                  -Dsonar.sources=. \
+                  -Dsonar.host.url=http://13.234.202.90:9000 \
+                  -Dsonar.login=$SONAR_TOKEN
+                """
+            }
+        }
+
+        stage('Security Scan - Trivy') {
+            steps {
+                sh """
+                trivy image $IMAGE_NAME:$IMAGE_TAG
+                """
             }
         }
 
         stage('Docker Build & Push') {
             steps {
-                withCredentials([
-                    usernamePassword(
-                        credentialsId: 'dockerhub',
-                        usernameVariable: 'DOCKER_USERNAME',
-                        passwordVariable: 'DOCKER_PASSWORD'
-                    )
-                ]) {
-                    sh '''
-                    # Login to Docker Hub safely
-                    echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-
-                    # Build the Docker image
-                    docker build -t $DOCKER_USERNAME/product-catalog:$BUILD_NUMBER src/product-catalog
-
-                    # Push the Docker image
-                    docker push $DOCKER_USERNAME/product-catalog:$BUILD_NUMBER
-                    '''
-                }
+                sh """
+                echo $DOCKER_CREDENTIALS_PSW | docker login -u $DOCKER_CREDENTIALS_USR --password-stdin
+                docker build -t $IMAGE_NAME:$IMAGE_TAG src/product-catalog
+                docker push $IMAGE_NAME:$IMAGE_TAG
+                """
             }
         }
 
         stage('Update Kubernetes Manifest') {
             steps {
-                withCredentials([string(credentialsId: 'github-token', variable: 'TOKEN')]) {
-                    sh '''
-                    # Ensure branch is up-to-date
-                    git fetch origin testrkg
-                    git checkout testrkg
-                    git reset --hard origin/testrkg
-
-                    # Update Kubernetes manifest safely
-                    sed -i "s|image: .*|image: $DOCKER_USERNAME/product-catalog:$BUILD_NUMBER|" kubernetes/productcatalog/deploy.yaml
-
-                    # Configure Git for CI
-                    git config user.email "ravikant@gmail.com"
-                    git config user.name "Ravikant Gupta"
-
-                    # Commit and push only if changes exist
-                    if ! git diff --quiet; then
-                        git add kubernetes/productcatalog/deploy.yaml
-                        git commit -m "[CI]: Update product catalog image tag $BUILD_NUMBER"
-                        git push https://$TOKEN@github.com/ravikant1983/ultimate-devops-project-demo.git HEAD:testrkg
-                    else
-                        echo "No changes to commit"
-                    fi
-                    '''
-                }
+                sh """
+                sed -i "s|image: .*|image: $IMAGE_NAME:$IMAGE_TAG|" kubernetes/productcatalog/deploy.yaml
+                git config --global user.email "ravikant@gmail.com"
+                git config --global user.name "Ravikant Gupta"
+                git add kubernetes/productcatalog/deploy.yaml
+                git commit -m "[CI] Update image tag to $IMAGE_TAG"
+                git push https://$GITHUB_TOKEN@github.com/ravikant1983/ultimate-devops-project-demo.git HEAD:main
+                """
             }
+        }
+
+        stage('Trigger ArgoCD Deployment') {
+            steps {
+                sh """
+                argocd app sync product-catalog-app --grpc-web --auth-token <ARGOCD_TOKEN>
+                """
+            }
+        }
+
+        stage('Notification') {
+            steps {
+                slackSend channel: '#devops', message: "Build #${BUILD_NUMBER} for Product Catalog completed successfully!"
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Pipeline completed successfully!"
+        }
+        failure {
+            slackSend channel: '#devops', message: "Build #${BUILD_NUMBER} failed! Check Jenkins logs."
         }
     }
 }
