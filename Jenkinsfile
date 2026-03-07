@@ -72,45 +72,36 @@ pipeline {
         }
     }
 }
+stage('Update Kubernetes Manifest') {
+    steps {
+        withCredentials([string(credentialsId: 'github-token', variable: 'TOKEN')]) {
+            sh '''
+            # Switch to your target branch
+            git fetch origin testrkg
+            git checkout testrkg
+            git reset --hard origin/testrkg
 
-	stage('Update Kubernetes Manifest') {
-    	   steps {
-       		 withCredentials([string(credentialsId: 'github-token', variable: 'TOKEN')]) {
-           		 sh '''
-          		 # Go to repo root
-           		 git checkout testrkg
+            # Update image tag in the Kubernetes manifest
+            sed -i "s|image: .*|image: ${DOCKER_USERNAME}/product-catalog:${IMAGE_TAG}|" kubernetes/productcatalog/deploy.yaml
 
-           		 # Discard any local changes to prevent conflicts
-         	         git reset --hard origin/testrkg
+            # Git config for CI commits
+            git config user.email "ravikant@gmail.com"
+            git config user.name "Ravikant Gupta"
 
-           		 # Update the image tag in your Kubernetes manifest
-         		 sed -i "s|image: .*|image: $DOCKER_USERNAME/product-catalog:${IMAGE_TAG}|" kubernetes/productcatalog/deploy.yaml
-
-           		 # Configure Git user
-         		 git config --global user.email "ravikant@gmail.com"
-       		         git config --global user.name "Ravikant Gupta"
-
-            	       	# Stage the changes
-         		 git add kubernetes/productcatalog/deploy.yaml
-
-        		 # Commit only if there are changes
-          		  if ! git diff --cached --quiet; then
-             		  git commit -m "[CI]: Update product catalog image tag"
-        		  fi
-
-            	       	  # Fetch latest changes from remote
-       		          git fetch origin testrkg
-
-            	       	  # Rebase local changes on top of latest remote
-          		  git rebase origin/testrkg || git rebase --abort
-
-          		  # Push changes safely
-      		          git push https://$TOKEN@github.com/ravikant1983/ultimate-devops-project-demo.git HEAD:testrkg
-           		  '''
-    		    }
-  		  }
-		}
-
-
+            # Commit only if there are changes
+            if ! git diff --quiet; then
+                git add kubernetes/productcatalog/deploy.yaml
+                git commit -m "[CI]: Update product catalog image tag"
+                
+                # Push using GitHub token securely
+                git push https://$TOKEN@github.com/ravikant1983/ultimate-devops-project-demo.git HEAD:testrkg
+            else
+                echo "No changes to commit"
+            fi
+            '''
+        }
     }
+  }
+   
+ }
 }
