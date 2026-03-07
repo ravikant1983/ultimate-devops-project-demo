@@ -75,6 +75,7 @@ pipeline {
 stage('Docker Build') {
     steps {
         sh """
+	cd src/product-catalog
         docker build -t rkg1983/product-catalog:${BUILD_NUMBER} .
         """
     }
