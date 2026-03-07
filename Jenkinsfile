@@ -110,16 +110,11 @@ pipeline {
         stage('Trigger ArgoCD Deployment') {
             steps {
                 sh """
-                argocd app sync product-catalog-app --grpc-web --auth-token <ARGOCD_TOKEN>
+                argocd app sync product-catalog-app --grpc-web --auth-token argocd-token
                 """
             }
         }
 
-        stage('Notification') {
-            steps {
-                slackSend channel: '#devops', message: "Build #${BUILD_NUMBER} for Product Catalog completed successfully!"
-            }
-        }
     }
 
     post {
