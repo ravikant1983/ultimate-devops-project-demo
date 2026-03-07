@@ -105,9 +105,9 @@ stage('Docker Push') {
                 withCredentials([string(credentialsId: 'github-token', variable: 'TOKEN')]) {
                     sh '''
                     # Ensure branch is up-to-date
-                    git fetch origin testrkg
-                    git checkout testrkg
-                    git reset --hard origin/testrkg
+                    git fetch origin cicd
+                    git checkout cicd
+                    git reset --hard origin/cicd
 
                     # Update Kubernetes manifest safely
                     sed -i "s|image: .*|image: $DOCKER_USERNAME/product-catalog:$BUILD_NUMBER|" kubernetes/productcatalog/deploy.yaml
@@ -120,7 +120,7 @@ stage('Docker Push') {
                     if ! git diff --quiet; then
                         git add kubernetes/productcatalog/deploy.yaml
                         git commit -m "[CI]: Update product catalog image tag $BUILD_NUMBER"
-                        git push https://$TOKEN@github.com/ravikant1983/ultimate-devops-project-demo.git HEAD:testrkg
+                        git push https://$TOKEN@github.com/ravikant1983/ultimate-devops-project-demo.git HEAD:cicd
                     else
                         echo "No changes to commit"
                     fi
