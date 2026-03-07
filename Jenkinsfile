@@ -20,7 +20,7 @@ pipeline {
 
         stage('Checkout Code') {
             steps {
-                git branch: 'main', url: 'https://github.com/ravikant1983/ultimate-devops-project-demo.git'
+                git branch: 'cicd', url: 'https://github.com/ravikant1983/ultimate-devops-project-demo.git'
             }
         }
 
@@ -47,8 +47,10 @@ pipeline {
         stage('Code Quality Scan') {
             steps {
                 sh """
+		cd src/product-catalog
+ 		go mod tidy
                 curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s latest
-                ./bin/golangci-lint run src/product-catalog
+                ./bin/golangci-lint run .
                 """
             }
         }
