@@ -37,8 +37,10 @@ pipeline {
         stage('Code Quality') {
             steps {
                 sh '''
+		cd src/product-catalog
+		go mod tidy
                 curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s latest
-                ./bin/golangci-lint run src/product-catalog
+                ./bin/golangci-lint run .
                 '''
             }
         }
