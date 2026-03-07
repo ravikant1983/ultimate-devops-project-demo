@@ -127,9 +127,4 @@ stage('Docker Push') {
 
     }
 
-    post {
-        success {
-            echo "Pipeline completed successfully!"
-        }
-    }
 }
