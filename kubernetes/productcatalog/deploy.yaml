@@ -32,9 +32,9 @@ spec:
       containers:
         - name: productcatalogservice
 <<<<<<< HEAD
-          image: rkg1983/product-catalog:25
+          image: /product-catalog:28
 =======
-          image: /product-catalog:27
+          image: /product-catalog:28
 >>>>>>> 0e09d837c3d5c7e44f9184aa194dba557fad7c8f
           imagePullPolicy: IfNotPresent
           ports:
