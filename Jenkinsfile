@@ -55,18 +55,20 @@ pipeline {
             }
         }
 
-        stage('SonarQube Scan') {
-            steps {
-                sh """
-                sonar-scanner \
-                  -Dsonar.projectKey=product-catalog \
-                  -Dsonar.sources=. \
-                  -Dsonar.host.url=http://13.234.202.90:9000 \
-                  -Dsonar.login=$SONAR_TOKEN
-                """
+	stage('SonarQube Scan') {
+   	    steps {
+        	script {
+            	  def scannerHome = tool 'sonar-scanner'
+           	  withSonarQubeEnv('sonar-server') {
+                	sh """
+                	${scannerHome}/bin/sonar-scanner \
+               	 	-Dsonar.projectKey=product-catalog \
+                	-Dsonar.sources=src/product-catalog
+                	"""
             }
         }
-
+    }
+}
         stage('Security Scan - Trivy') {
             steps {
                 sh """
