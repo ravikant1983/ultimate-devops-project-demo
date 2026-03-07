@@ -69,23 +69,35 @@ pipeline {
         }
     }
 }
-        stage('Security Scan - Trivy') {
-            steps {
-                sh """
-                trivy image $IMAGE_NAME:$IMAGE_TAG
-                """
-            }
-        }
 
-        stage('Docker Build & Push') {
-            steps {
-                sh """
-                echo $DOCKER_CREDENTIALS_PSW | docker login -u $DOCKER_CREDENTIALS_USR --password-stdin
-                docker build -t $IMAGE_NAME:$IMAGE_TAG src/product-catalog
-                docker push $IMAGE_NAME:$IMAGE_TAG
-                """
-            }
+
+
+stage('Docker Build') {
+    steps {
+        sh """
+        docker build -t rkg1983/product-catalog:${BUILD_NUMBER} .
+        """
+    }
+}
+
+stage('Security Scan - Trivy') {
+    steps {
+        sh """
+        trivy image rkg1983/product-catalog:${BUILD_NUMBER}
+        """
+    }
+}
+
+stage('Docker Push') {
+    steps {
+        withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+            sh """
+            docker login -u $USER -p $PASS
+            docker push rkg1983/product-catalog:${BUILD_NUMBER}
+            """
         }
+    }
+}
 
         stage('Update Kubernetes Manifest') {
             steps {
