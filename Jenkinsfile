@@ -47,15 +47,31 @@ pipeline {
 
         stage('Docker Build & Push') {
             steps {
+	        withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub', 
+                        usernameVariable: 'DOCKER_USERNAME', 
+                        passwordVariable: 'DOCKER_PASSWORD'
+                    )
+                ]) {
                 script {
-                    sh '''
-                    docker build -t $DOCKER_USERNAME/product-catalog:${IMAGE_TAG} src/product-catalog
-                    docker push $DOCKER_USERNAME/product-catalog:${IMAGE_TAG}
-                    '''
-                }
+                    def imageTag = "${env.BUILD_NUMBER}"
+                    def imageName = "${DOCKER_USERNAME}/product-catalog:${imageTag}"
+                 
+                    echo "Building Docker image: ${imageName}"                   
+
+            	    // Build the Docker image
+                    sh "docker build -t ${imageName} src/product-catalog"
+
+                    // Login to Docker Hub
+                    sh "echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin"
+
+                    // Push the image
+                    sh "docker push ${imageName}"
             }
         }
-
+    }
+}
         stage('Update Kubernetes Manifest') {
             steps {
                 withCredentials([string(credentialsId: 'github-token', variable: 'TOKEN')]) {
