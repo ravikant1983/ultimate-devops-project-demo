@@ -136,6 +136,7 @@ stage('Docker Push') {
                     argocd app sync product-catalog-app \
                     --server a853d1ab52bbf48a19db1763162e88a1-447774326.ap-south-1.elb.amazonaws.com \
                     --grpc-web \
+		    --insecure \
                     --auth-token $ARGOCD_TOKEN
                     """
             }
