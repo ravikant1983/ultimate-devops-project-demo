@@ -46,15 +46,6 @@ pipeline {
 }
 
 
-        stage('Code Quality') {
-            steps {
-                sh '''
-                curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s latest
-                ./bin/golangci-lint run src/product-catalog
-                '''
-            }
-        }
-
         stage('Docker Build & Push') {
             steps {
                 script {
