@@ -8,11 +8,6 @@ pipeline {
         DOCKER_CREDENTIALS = credentials('dockerhub')
         GITHUB_TOKEN = credentials('github-token')
         SONAR_TOKEN = credentials('sonar-token')
-        // Fetch the LB URL dynamically from the service
-	ARGOCD_SERVER = sh(
-  	   script: "kubectl get svc argocd-server -n argocd -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'",
-	   returnStdout: true
-	).trim()
     }
 
     options {
@@ -139,7 +134,7 @@ stage('Docker Push') {
 		withCredentials([string(credentialsId: 'argocd-token', variable: 'ARGOCD_TOKEN')]) {
                     sh """
 		    argocd app sync product-catalog-app \
-		    --server ${ARGOCD_SERVER} \
+		    --server abe252f5953cf454cba164e867dc09e2-651664846.ap-south-1.elb.amazonaws.com \
                     --grpc-web \
 		    --insecure \
                     --auth-token $ARGOCD_TOKEN
